@@ -1,24 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 
 const App = () => {
   const [city, setCity] = useState('');
   const [weatherData, setWeatherData] = useState(null);
+  const [forecastData, setForecastData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [recentSearches, setRecentSearches] = useState([]);
 
-  const apiKey = '30aaeaea0d6c2d20535f003c28d480f3'; 
-  useEffect(() => {
- 
-    const searches = JSON.parse(localStorage.getItem('recentSearches')) || [];
-    setRecentSearches(searches);
-  }, []);
+  const apiKey = 'YOUR_API_KEY'; // Sostituisci con la tua API Key di OpenWeatherMap
 
+  // Funzione per gestire il cambiamento della città
   const handleCityChange = (event) => {
     setCity(event.target.value);
   };
 
+  // Funzione per effettuare le chiamate API
   const fetchWeatherData = async () => {
     if (!city.trim()) {
       setError('Per favore, inserisci una città valida.');
@@ -28,6 +24,7 @@ const App = () => {
     setLoading(true);
     setError(null);
     setWeatherData(null);
+    setForecastData(null);
 
     try {
       const weatherResponse = await fetch(
@@ -38,16 +35,25 @@ const App = () => {
         throw new Error('Città non trovata');
       }
       setWeatherData(weather);
-      // Memorizza la città nelle ultime ricerche
-      const newSearches = [city, ...recentSearches.filter(c => c !== city)].slice(0, 5); // Mantiene solo le ultime 5 ricerche
-      setRecentSearches(newSearches);
-      localStorage.setItem('recentSearches', JSON.stringify(newSearches));
+
+      const forecastResponse = await fetch(
+        `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`
+      );
+      const forecast = await forecastResponse.json();
+      setForecastData(forecast);
     } catch (error) {
       setError(error.message);
     } finally {
       setLoading(false);
     }
   };
+
+  // Effettua la ricerca quando la città cambia
+  useEffect(() => {
+    if (city) {
+      fetchWeatherData();
+    }
+  }, [city]);
 
   return (
     <div className="app">
@@ -70,18 +76,23 @@ const App = () => {
           <p>{weatherData.weather[0].description}</p>
           <p>Temperatura: {weatherData.main.temp}°C</p>
           <p>Umidità: {weatherData.main.humidity}%</p>
-          <Link to={`/details/${weatherData.name}`}>Vai ai dettagli</Link>
         </div>
       )}
 
-      <h3>Ultime ricerche</h3>
-      <ul>
-        {recentSearches.map((search, index) => (
-          <li key={index}>
-            <Link to={`/details/${search}`}>{search}</Link>
-          </li>
-        ))}
-      </ul>
+      {forecastData && (
+        <div className="forecast">
+          <h3>Previsioni per i prossimi giorni</h3>
+          <ul>
+            {forecastData.list.slice(0, 5).map((forecast) => (
+              <li key={forecast.dt}>
+                <p>{new Date(forecast.dt * 1000).toLocaleDateString()}</p>
+                <p>Temp: {forecast.main.temp}°C</p>
+                <p>{forecast.weather[0].description}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };
